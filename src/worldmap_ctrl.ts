@@ -116,21 +116,14 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
         url: this.panel.jsonpUrl + "?callback=?",
         contentType: "application/json",
         jsonpCallback: this.panel.jsonpCallback,
-        dataType: "jsonp",
-        success: res => {
-          this.locations = res;
-          this.render();
-        }
-      });
+        dataType: "jsonp"
+      }).then(this.reloadLocations.bind(this));
     } else if (this.panel.locationData === "json endpoint") {
       if (!this.panel.jsonUrl) {
         return;
       }
 
-      $.getJSON(this.panel.jsonUrl).then(res => {
-        this.locations = res;
-        this.render();
-      });
+      $.getJSON(this.panel.jsonUrl).then(this.reloadLocations.bind(this));
     } else if (this.panel.locationData === "table") {
       // .. Do nothing
     } else if (
