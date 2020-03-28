@@ -19,6 +19,10 @@ const DEFAULT_TILE_SERVERS = {
   },
 };
 
+function isHighDensity(){
+  return ((window.matchMedia && (window.matchMedia('only screen and (min-resolution: 124dpi), only screen and (min-resolution: 1.3dppx), only screen and (min-resolution: 48.8dpcm)').matches || window.matchMedia('only screen and (-webkit-min-device-pixel-ratio: 1.3), only screen and (-o-min-device-pixel-ratio: 2.6/2), only screen and (min--moz-device-pixel-ratio: 1.3), only screen and (min-device-pixel-ratio: 1.3)').matches)) || (window.devicePixelRatio && window.devicePixelRatio > 1.3));
+}
+
 export default class WorldMap {
   ctrl: WorldmapCtrl;
   mapContainer: any;
@@ -52,13 +56,19 @@ export default class WorldMap {
 
     const availableTileServers = _.defaults({}, DEFAULT_TILE_SERVERS, this.tileServers);
     const selectedTileServer = availableTileServers[this.ctrl.tileServer];
+
+    let params = selectedTileServer.params || {};
+    if (isHighDensity()) {
+      params = { ...params, ...(selectedTileServer.hdpiParams || {}) };
+    }
+
     (<any>window).L.tileLayer(selectedTileServer.url, {
       maxZoom: 18,
       subdomains: selectedTileServer.subdomains,
       reuseTiles: true,
       detectRetina: true,
       attribution: selectedTileServer.attribution,
-      ...(selectedTileServer.params || {})
+      ...params
     }).addTo(this.map);
   }
 
