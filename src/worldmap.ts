@@ -43,6 +43,8 @@ export default class WorldMap {
       preferCanvas: true,
       center: mapCenter,
       zoom: parseInt(this.ctrl.panel.initialZoom, 10) || 1,
+      maxZoom: parseInt(this.ctrl.panel.maxZoom, 10) || 17,
+      minZoom: parseInt(this.ctrl.panel.minZoom, 10) || 0,
     });
     this.setMouseWheelZoom();
 
@@ -251,6 +253,14 @@ export default class WorldMap {
 
   setZoom(zoomFactor) {
     this.map.setZoom(parseInt(zoomFactor, 10));
+  }
+
+  setMinZoom(minZoom) {
+    this.map.setMinZoom(parseInt(minZoom, 10));
+  }
+
+  setMaxZoom(maxZoom) {
+    this.map.setMaxZoom(parseInt(maxZoom, 10));
   }
 
   remove() {

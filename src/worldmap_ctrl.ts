@@ -9,12 +9,17 @@ import $ from "jquery";
 import "./css/leaflet.css";
 import WorldMap from "./worldmap";
 
+const DEFAULT_MIN_ZOOM = 0;
+const DEFAULT_MAX_ZOOM = 17;
+
 const panelDefaults = {
   maxDataPoints: 1,
   mapCenter: "(0°, 0°)",
   mapCenterLatitude: 0,
   mapCenterLongitude: 0,
   initialZoom: 1,
+  minZoom: DEFAULT_MIN_ZOOM,
+  maxZoom: DEFAULT_MAX_ZOOM,
   valueName: "total",
   circleMinSize: 2,
   circleMaxSize: 30,
@@ -244,6 +249,14 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
 
   setZoom() {
     this.map.setZoom(this.panel.initialZoom || 1);
+  }
+
+  setMinZoom() {
+    this.map.setMinZoom(this.panel.minZoom || DEFAULT_MIN_ZOOM);
+  }
+
+  setMaxZoom() {
+    this.map.setMaxZoom(this.panel.maxZoom || DEFAULT_MAX_ZOOM);
   }
 
   toggleLegend() {
