@@ -2,7 +2,7 @@ import * as _ from 'lodash';
 import * as L from './libs/leaflet';
 import WorldmapCtrl from './worldmap_ctrl';
 
-const tileServers = {
+const DEFAULT_TILE_SERVERS = {
   'CartoDB Positron': {
     url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png',
     attribution:
@@ -26,11 +26,13 @@ export default class WorldMap {
   map: any;
   legend: any;
   circlesLayer: any;
+  tileServers: any;
 
-  constructor(ctrl, mapContainer) {
+  constructor(ctrl, mapContainer, tileServers) {
     this.ctrl = ctrl;
     this.mapContainer = mapContainer;
     this.circles = [];
+    this.tileServers = tileServers;
   }
 
   createMap() {
@@ -48,13 +50,15 @@ export default class WorldMap {
     });
     this.setMouseWheelZoom();
 
-    const selectedTileServer = tileServers[this.ctrl.tileServer];
+    const availableTileServers = _.defaults({}, DEFAULT_TILE_SERVERS, this.tileServers);
+    const selectedTileServer = availableTileServers[this.ctrl.tileServer];
     (<any>window).L.tileLayer(selectedTileServer.url, {
       maxZoom: 18,
       subdomains: selectedTileServer.subdomains,
       reuseTiles: true,
       detectRetina: true,
       attribution: selectedTileServer.attribution,
+      ...(selectedTileServer.params || {})
     }).addTo(this.map);
   }
 

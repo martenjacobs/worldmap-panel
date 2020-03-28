@@ -45,7 +45,9 @@ const panelDefaults = {
     latitudeField: "latitude",
     longitudeField: "longitude",
     metricField: "metric"
-  }
+  },
+  tileServers: {},
+  selectedTileServer: null
 };
 
 const mapCenters = {
@@ -73,8 +75,8 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
   constructor($scope, $injector, contextSrv) {
     super($scope, $injector);
 
-    this.setMapProvider(contextSrv);
     _.defaults(this.panel, panelDefaults);
+    this.setMapProvider(contextSrv);
 
     this.dataFormatter = new DataFormatter(this);
 
@@ -87,9 +89,10 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
   }
 
   setMapProvider(contextSrv) {
-    this.tileServer = contextSrv.user.lightTheme
+    const themeBasedTileServer = contextSrv.user.lightTheme
       ? "CartoDB Positron"
       : "CartoDB Dark";
+    this.tileServer = this.panel.selectedTileServer || themeBasedTileServer;
     this.setMapSaturationClass();
   }
 
@@ -332,7 +335,7 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
       }
 
       if (!ctrl.map) {
-        const map = new WorldMap(ctrl, mapContainer[0]);
+        const map = new WorldMap(ctrl, mapContainer[0], ctrl.panel.tileServers);
         map.createMap();
         ctrl.map = map;
       }
