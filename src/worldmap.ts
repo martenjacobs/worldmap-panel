@@ -130,7 +130,7 @@ export default class WorldMap {
   clearCircles() {
     if (this.circlesLayer) {
       this.circlesLayer.clearLayers();
-      this.removeCircles();
+      this.removeMarkers();
       this.markers = [];
     }
   }
@@ -139,13 +139,13 @@ export default class WorldMap {
     const data = this.filterEmptyAndZeroValues(this.ctrl.data);
     if (this.needToRedrawCircles(data)) {
       this.clearCircles();
-      this.createCircles(data);
+      this.createMarkers(data);
     } else {
       this.updateMarkers(data);
     }
   }
 
-  createCircles(data: Data) {
+  createMarkers(data: Data) {
     const markers: Marker[] = [];
     data.forEach(dataPoint => {
       if (!dataPoint.locationName) {
@@ -153,7 +153,7 @@ export default class WorldMap {
       }
       markers.push(this.createMarker(dataPoint));
     });
-    this.circlesLayer = this.addCircles(markers.map(m => m.circle));
+    this.circlesLayer = this.addMarkers(markers.map(m => m.circle));
     this.markers = markers;
   }
 
@@ -166,22 +166,25 @@ export default class WorldMap {
       const marker = _.find(this.markers, cir => {
         return cir.location === dataPoint.key;
       });
-      const circle = (marker as any).circle;
-      if (circle) {
-        circle.setRadius(this.calcCircleSize(dataPoint.value || 0));
-        circle.setStyle({
-          color: this.getColor(dataPoint.value),
-          fillColor: this.getColor(dataPoint.value),
-          fillOpacity: 0.5,
-          location: dataPoint.key,
-        } as any);
-        circle.unbindPopup();
-        this.createPopup(circle, dataPoint.locationName, dataPoint.valueRounded);
-      }
-      const tooltip = (marker as any).tooltip;
-      if (tooltip) {
-        const label = this.getTooltipContents(dataPoint);
-        tooltip.setTooltipContent(label);
+      if (marker) {
+        const circle = marker.circle;
+        if (circle) {
+          circle.setRadius(this.calcCircleSize(dataPoint.value || 0));
+          circle.setStyle({
+            color: this.getColor(dataPoint.value),
+            fillColor: this.getColor(dataPoint.value),
+            fillOpacity: 0.5,
+            location: dataPoint.key,
+          } as any);
+          circle.unbindPopup();
+          this.createPopup(circle, dataPoint.locationName, dataPoint.valueRounded);
+        }
+        const tooltip = marker.tooltip;
+        if (tooltip) {
+          //const label = this.getTooltipContents(dataPoint);
+          circle.unbindTooltip();
+          marker.tooltip = this.createTooltip(circle, dataPoint)
+        }
       }
     });
   }
@@ -196,17 +199,20 @@ export default class WorldMap {
     }) as L.CircleMarker;
     let tooltip: L.Tooltip | undefined = undefined
     if (this.ctrl.panel.tooltip) {
-      const label = this.getTooltipContents(dataPoint);
-      tooltip = circle.bindTooltip(label, {
-        permanent: true,
-        direction: "center",
-        opacity: 1,
-        className: "value-tooltip",
-      }).openTooltip().getTooltip();
+      tooltip = this.createTooltip(circle, dataPoint)
     }
     this.createPopup(circle, dataPoint.locationName, dataPoint.valueRounded);
 
     return { circle, tooltip, location: dataPoint.key };
+  }
+  createTooltip(circle: L.CircleMarker, dataPoint: DataPoint) {
+    const label = this.getTooltipContents(dataPoint);
+    return circle.bindTooltip(label, {
+      permanent: true,
+      direction: "center",
+      opacity: 1,
+      className: "value-tooltip",
+    }).openTooltip().getTooltip();
   }
   getTooltipContents(dataPoint: DataPoint) {
     const { valueRounded: value } = dataPoint;
@@ -283,11 +289,11 @@ export default class WorldMap {
     }
   }
 
-  addCircles(circles: L.CircleMarker[]) {
+  addMarkers(circles: L.CircleMarker[]) {
     return (<any>window).L.layerGroup(circles).addTo(this.map);
   }
 
-  removeCircles() {
+  removeMarkers() {
     this.map.removeLayer(this.circlesLayer);
   }
 
@@ -306,7 +312,7 @@ export default class WorldMap {
   remove() {
     this.markers = [];
     if (this.circlesLayer) {
-      this.removeCircles();
+      this.removeMarkers();
     }
     if (this.legend) {
       this.removeLegend();
