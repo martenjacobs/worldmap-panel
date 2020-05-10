@@ -58,7 +58,19 @@ const mapCenters = {
   "SE Asia": { mapCenterLatitude: 10, mapCenterLongitude: 106 },
   "Last GeoHash": { mapCenterLatitude: 0, mapCenterLongitude: 0 }
 };
-
+export type DataPoint = {
+  key: string,
+  value: number,
+  locationName?: string,
+  valueRounded: number,
+  locationLatitude: number,
+  locationLongitude: number,
+}
+export type Data = DataPoint[] & {
+  thresholds: number[],
+  valueRange: number,
+  lowestValue: number,
+}
 export default class WorldmapCtrl extends MetricsPanelCtrl {
   static templateUrl = "partials/module.html";
 
@@ -68,7 +80,7 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
   saturationClass: string;
   map: any;
   series: any;
-  data: any;
+  data: Data;
   mapCenterMoved: boolean;
 
   /** @ngInject **/
@@ -140,8 +152,8 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
     ) {
       $.getJSON(
         "public/plugins/grafana-worldmap-panel/data/" +
-          this.panel.locationData +
-          ".json"
+        this.panel.locationData +
+        ".json"
       ).then(this.reloadLocations.bind(this));
     }
   }
@@ -203,7 +215,7 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
         this.series = dataList.map(this.seriesHandler.bind(this));
         this.dataFormatter.setValues(data);
       }
-      this.data = data;
+      this.data = data as any;
 
       this.updateThresholdData();
 
@@ -316,7 +328,7 @@ export default class WorldmapCtrl extends MetricsPanelCtrl {
       ctrl.renderingCompleted();
     });
 
-     function render() {
+    function render() {
       if (!ctrl.data) {
         return;
       }

@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
 import * as L from './libs/leaflet';
-import WorldmapCtrl from './worldmap_ctrl';
+import WorldmapCtrl, { Data, DataPoint } from './worldmap_ctrl';
 
 const DEFAULT_TILE_SERVERS = {
   'CartoDB Positron': {
@@ -19,14 +19,18 @@ const DEFAULT_TILE_SERVERS = {
   },
 };
 
-function isHighDensity(){
+function isHighDensity() {
   return ((window.matchMedia && (window.matchMedia('only screen and (min-resolution: 124dpi), only screen and (min-resolution: 1.3dppx), only screen and (min-resolution: 48.8dpcm)').matches || window.matchMedia('only screen and (-webkit-min-device-pixel-ratio: 1.3), only screen and (-o-min-device-pixel-ratio: 2.6/2), only screen and (min--moz-device-pixel-ratio: 1.3), only screen and (min-device-pixel-ratio: 1.3)').matches)) || (window.devicePixelRatio && window.devicePixelRatio > 1.3));
 }
-
+type Marker = {
+  location: string,
+  circle: L.CircleMarker,
+  tooltip?: L.Tooltip,
+}
 export default class WorldMap {
   ctrl: WorldmapCtrl;
   mapContainer: any;
-  circles: any[];
+  markers: Marker[];
   map: any;
   legend: any;
   circlesLayer: any;
@@ -35,7 +39,7 @@ export default class WorldMap {
   constructor(ctrl, mapContainer, tileServers) {
     this.ctrl = ctrl;
     this.mapContainer = mapContainer;
-    this.circles = [];
+    this.markers = [];
     this.tileServers = tileServers;
   }
 
@@ -103,31 +107,31 @@ export default class WorldMap {
     this.legend.addTo(this.map);
   }
 
-  needToRedrawCircles(data) {
-    if (this.circles.length === 0 && data.length > 0) {
+  needToRedrawCircles(data: Data) {
+    if (this.markers.length === 0 && data.length > 0) {
       return true;
     }
 
-    if (this.circles.length !== data.length) {
+    if (this.markers.length !== data.length) {
       return true;
     }
 
-    const locations = _.map(_.map(this.circles, 'options'), 'location').sort();
+    const locations = this.markers.map(m => m.location).sort();
     const dataPoints = _.map(data, 'key').sort();
     return !_.isEqual(locations, dataPoints);
   }
 
-  filterEmptyAndZeroValues(data) {
+  filterEmptyAndZeroValues(data: Data): Data {
     return _.filter(data, o => {
       return !(this.ctrl.panel.hideEmpty && _.isNil(o.value)) && !(this.ctrl.panel.hideZero && o.value === 0);
-    });
+    }) as Data;
   }
 
   clearCircles() {
     if (this.circlesLayer) {
       this.circlesLayer.clearLayers();
       this.removeCircles();
-      this.circles = [];
+      this.markers = [];
     }
   }
 
@@ -137,32 +141,32 @@ export default class WorldMap {
       this.clearCircles();
       this.createCircles(data);
     } else {
-      this.updateCircles(data);
+      this.updateMarkers(data);
     }
   }
 
-  createCircles(data) {
-    const circles: any[] = [];
+  createCircles(data: Data) {
+    const markers: Marker[] = [];
     data.forEach(dataPoint => {
       if (!dataPoint.locationName) {
         return;
       }
-      circles.push(this.createCircle(dataPoint));
+      markers.push(this.createMarker(dataPoint));
     });
-    this.circlesLayer = this.addCircles(circles);
-    this.circles = circles;
+    this.circlesLayer = this.addCircles(markers.map(m => m.circle));
+    this.markers = markers;
   }
 
-  updateCircles(data) {
+  updateMarkers(data: Data) {
     data.forEach(dataPoint => {
       if (!dataPoint.locationName) {
         return;
       }
 
-      const circle = _.find(this.circles, cir => {
-        return cir.options.location === dataPoint.key;
+      const marker = _.find(this.markers, cir => {
+        return cir.location === dataPoint.key;
       });
-
+      const circle = (marker as any).circle;
       if (circle) {
         circle.setRadius(this.calcCircleSize(dataPoint.value || 0));
         circle.setStyle({
@@ -170,27 +174,49 @@ export default class WorldMap {
           fillColor: this.getColor(dataPoint.value),
           fillOpacity: 0.5,
           location: dataPoint.key,
-        });
+        } as any);
         circle.unbindPopup();
         this.createPopup(circle, dataPoint.locationName, dataPoint.valueRounded);
+      }
+      const tooltip = (marker as any).tooltip;
+      if (tooltip) {
+        const label = this.getTooltipContents(dataPoint);
+        tooltip.setTooltipContent(label);
       }
     });
   }
 
-  createCircle(dataPoint) {
-    const circle = (<any>window).L.circleMarker([dataPoint.locationLatitude, dataPoint.locationLongitude], {
+  createMarker(dataPoint: DataPoint): Marker {
+    const circle = ((<any>window).L).circleMarker([dataPoint.locationLatitude, dataPoint.locationLongitude], {
       radius: this.calcCircleSize(dataPoint.value || 0),
       color: this.getColor(dataPoint.value),
       fillColor: this.getColor(dataPoint.value),
       fillOpacity: 0.5,
       location: dataPoint.key,
-    });
-
+    }) as L.CircleMarker;
+    let tooltip: L.Tooltip | undefined = undefined
+    if (this.ctrl.panel.tooltip) {
+      const label = this.getTooltipContents(dataPoint);
+      tooltip = circle.bindTooltip(label, {
+        permanent: true,
+        direction: "center",
+        opacity: 1,
+        className: "value-tooltip",
+      }).openTooltip().getTooltip();
+    }
     this.createPopup(circle, dataPoint.locationName, dataPoint.valueRounded);
-    return circle;
-  }
 
-  calcCircleSize(dataPointValue) {
+    return { circle, tooltip, location: dataPoint.key };
+  }
+  getTooltipContents(dataPoint: DataPoint) {
+    const { valueRounded: value } = dataPoint;
+    if ((this.ctrl.panel.tooltip || {}).showUnit) {
+      const unit: string = value && value === 1 ? this.ctrl.panel.unitSingular : this.ctrl.panel.unitPlural;
+      return (value + ' ' + (unit || '')).trim();
+    }
+    return `${value}`.trim();
+  }
+  calcCircleSize(dataPointValue: number) {
     const circleMinSize = parseInt(this.ctrl.panel.circleMinSize, 10) || 2;
     const circleMaxSize = parseInt(this.ctrl.panel.circleMaxSize, 10) || 30;
 
@@ -204,8 +230,8 @@ export default class WorldMap {
     return circleSizeRange * dataFactor + circleMinSize;
   }
 
-  createPopup(circle, locationName, value) {
-    const unit = value && value === 1 ? this.ctrl.panel.unitSingular : this.ctrl.panel.unitPlural;
+  createPopup(circle: L.CircleMarker, locationName: string | undefined, value: number) {
+    const unit: string = value && value === 1 ? this.ctrl.panel.unitSingular : this.ctrl.panel.unitPlural;
     const label = (locationName + ': ' + value + ' ' + (unit || '')).trim();
     circle.bindPopup(label, {
       offset: (<any>window).L.point(0, -2),
@@ -226,7 +252,7 @@ export default class WorldMap {
     }
   }
 
-  getColor(value) {
+  getColor(value: number) {
     for (let index = this.ctrl.data.thresholds.length; index > 0; index -= 1) {
       if (value >= this.ctrl.data.thresholds[index - 1]) {
         return this.ctrl.panel.colors[index];
@@ -257,7 +283,7 @@ export default class WorldMap {
     }
   }
 
-  addCircles(circles) {
+  addCircles(circles: L.CircleMarker[]) {
     return (<any>window).L.layerGroup(circles).addTo(this.map);
   }
 
@@ -278,7 +304,7 @@ export default class WorldMap {
   }
 
   remove() {
-    this.circles = [];
+    this.markers = [];
     if (this.circlesLayer) {
       this.removeCircles();
     }
